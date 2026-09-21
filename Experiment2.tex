@@ -1,0 +1,345 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{ICS1512}
+\rhead{Machine Learning Algorithms Laboratory}
+\cfoot{\thepage}
+
+\lstset{
+language=Python,
+basicstyle=\ttfamily\small,
+numbers=left,
+frame=single,
+breaklines=true,
+showstringspaces=false
+}
+
+\begin{document}
+
+\begin{tabular}{|p{4cm}|p{11cm}|}
+\hline
+Experiment No. & 2 \\ \hline
+Experiment Title & Email Spam/Ham Classification using Na\"ive Bayes and KNN
+\footnote{\textbf{GitHub Repository: }\url{https://github.com/Barath-j593/ML-assignments}}\\ \hline
+Student Name & NavinKumar S \\ \hline
+Register Number & 3122247001039\\ \hline
+Faculty & Dr. Poreddy Ajay Kumar Reddy \\ \hline
+Submission Date & 02/08/26 \\ \hline
+\end{tabular}
+
+\section{Objective}
+To build spam/ham classifiers for the Spambase dataset using Na\"ive Bayes (Gaussian,
+Multinomial, Bernoulli) and K-Nearest Neighbors, compare the three Na\"ive Bayes variants,
+study the effect of varying $k$, compare the KDTree and BallTree neighbour-search algorithms,
+optimize KNN using GridSearchCV and RandomizedSearchCV, evaluate computational complexity and
+execution time, and evaluate all models using K-Fold cross-validation.
+
+\section{Problem Statement}
+Given the Spambase dataset of word/character frequency and capital-letter-run features
+extracted from 4,601 emails, the problem is binary classification: predict whether each email
+is spam (1) or not-spam (0). The input is a 57-dimensional numeric feature vector per email;
+the output is a binary class label. The objective is to identify which Na\"ive Bayes variant
+and which KNN configuration classify spam most accurately and efficiently, and to understand
+the computational trade-offs between the two model families.
+
+\section{Dataset Description}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & Spambase \\ \hline
+Dataset Source & Kaggle -- \url{https://www.kaggle.com/datasets/somesh24/spambase} (UCI ML Repository) \\ \hline
+Number of Samples & 4,601 \\ \hline
+Number of Features & 57 (48 word-frequency, 6 character-frequency, 3 capital-run-length features) \\ \hline
+Number of Classes & 2 (2,788 not-spam / 1,813 spam) \\ \hline
+Missing Values & 0 \\ \hline
+Train-Test Split & 80:20 stratified (3,680 train / 921 test), \texttt{random\_state=42} \\ \hline
+\end{longtable}
+
+\section{Exploratory Data Analysis}
+Include all relevant visualizations.
+\begin{itemize}
+\item Dataset overview
+\item Statistical summary
+\item Missing value analysis
+\item Class distribution
+\item Correlation matrix
+\item Feature distribution
+\end{itemize}
+
+\subsection*{Class Distribution}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\linewidth]{class_distribution.png}
+\caption{Class distribution -- Spambase}
+\end{figure}
+\textbf{Inference:} The dataset is moderately imbalanced (2,788 ham vs. 1,813 spam, about
+61:39). This is mild enough that accuracy remains a reasonably informative metric, but
+precision/recall/F1/ROC-AUC are still reported throughout to avoid overstating performance.
+No missing values are present, so no missing-value visualization is required.
+
+\subsection*{Correlation Matrix}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{correlation_heatmap.png}
+\caption{Correlation heatmap -- top 15 features most correlated with the spam label}
+\end{figure}
+\textbf{Inference:} Character frequency features such as \texttt{char\_freq\_!} and
+\texttt{char\_freq\_\$}, along with word frequencies for ``your'', ``000'', ``remove'', and
+``free'', show the strongest positive correlation with the spam label -- consistent with
+common spam-email vocabulary and formatting (exclamation marks, dollar signs, promotional
+words).
+
+\subsection*{Feature Distribution}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\linewidth]{hist_word_freq_free.png}
+\includegraphics[width=0.48\linewidth]{hist_char_freq_excl.png}
+\caption{Histograms of important features -- word\_freq\_free and char\_freq\_!}
+\end{figure}
+\textbf{Inference:} Both features are heavily right-skewed with a large mass at or near zero,
+since most legitimate emails never use these tokens, while a minority of (mostly spam)
+emails use them repeatedly -- exactly the long-tail pattern that makes them discriminative.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\linewidth]{box_word_freq_free.png}
+\includegraphics[width=0.48\linewidth]{box_char_freq_excl.png}
+\caption{Boxplots of word\_freq\_free and char\_freq\_! grouped by class}
+\end{figure}
+\textbf{Inference:} Both features show a visibly higher median and wider spread for the spam
+class (1) compared to ham (0), confirming they carry real discriminative signal rather than
+noise -- this matches their high ranking in the correlation heatmap above.
+
+\section{Data Preprocessing}
+Explain:
+\begin{itemize}
+\item \textbf{Missing value handling:} Not required -- the dataset contains zero missing
+values across all 4,601 rows and 57 features.
+\item \textbf{Encoding:} Not required -- all 57 features and the target label are already
+numeric.
+\item \textbf{Feature scaling:} \texttt{StandardScaler} (zero mean, unit variance) was
+applied for KNN and Gaussian NB, since distance-based and Gaussian-likelihood models are
+sensitive to feature scale. Multinomial NB used the raw non-negative frequency values
+directly (required, since it models non-negative counts). Bernoulli NB internally binarizes
+each feature at a 0.0 threshold (scikit-learn default).
+\item \textbf{Train-test split:} 80:20 stratified split (3,680 train / 921 test rows),
+preserving the 61:39 class ratio in both subsets.
+\item \textbf{Feature engineering:} Not applicable -- the 57 provided frequency/length
+features were used as-is.
+\end{itemize}
+
+\section{Machine Learning Algorithm}
+Explain:
+\begin{itemize}
+\item \textbf{Working principle:} Na\"ive Bayes applies Bayes' theorem,
+$P(C\mid X) = P(X\mid C)P(C)/P(X)$, with a conditional independence assumption between
+features, to compute each class's posterior probability directly from training-data
+frequency/likelihood statistics -- there is no iterative optimization. Gaussian NB assumes
+each feature is normally distributed within a class; Multinomial NB models features as
+counts/frequencies; Bernoulli NB treats each feature as a binary presence/absence indicator.
+KNN is a lazy, instance-based learner: it stores the training data and, at prediction time,
+finds the $k$ nearest training points (by Euclidean/Manhattan distance) to a query point and
+assigns the majority class among them (optionally weighted by inverse distance).
+\item \textbf{Mathematical formulation:}
+$$P(C\mid X) = \frac{P(X\mid C)\,P(C)}{P(X)}, \qquad
+\hat{y} = \operatorname*{mode}_{i \in N_k(x)} y_i$$
+where $N_k(x)$ is the set of $k$ nearest neighbours of query point $x$.
+\item \textbf{Advantages:} Na\"ive Bayes is extremely fast to train and predict
+($O(nd)$ / $O(d)$), works well even with limited data, and requires no hyperparameter tuning.
+KNN makes no assumption about the underlying data distribution and can capture non-linear
+decision boundaries.
+\item \textbf{Limitations:} Na\"ive Bayes' independence assumption is frequently violated in
+practice (many Spambase features are correlated, as seen in Section 4), which can bias its
+probability estimates. KNN's prediction cost scales with training set size ($O(nd)$ for brute
+force), it is sensitive to irrelevant/unscaled features, and it stores the entire training
+set in memory.
+\end{itemize}
+
+\section{Experimental Setup}
+\begin{tabular}{ll}
+\toprule
+Python Version & \\
+Scikit-Learn Version & \\
+IDE & Jupyter Notebook \\
+Operating System & \\
+Hardware & \\
+\bottomrule
+\end{tabular}
+
+\section{Hyperparameter Selection}
+
+\begin{tabular}{ll}
+\toprule
+Parameter & Value\\
+\midrule
+Best $n\_neighbors$ (GridSearchCV) & 9 \\
+Best weights (GridSearchCV) & distance \\
+Best metric (GridSearchCV) & manhattan \\
+Best CV Accuracy (GridSearchCV) & 0.9253 \\
+Best $n\_neighbors$ (RandomizedSearchCV) & 10 \\
+Best weights (RandomizedSearchCV) & distance \\
+Best metric (RandomizedSearchCV) & euclidean \\
+Best CV Accuracy (RandomizedSearchCV) & 0.9234 \\
+\bottomrule
+\end{tabular}
+
+\textbf{Note:} GridSearchCV exhaustively searched
+$n\_neighbors \in \{1,3,5,7,9,11,13,15\} \times weights \in \{uniform, distance\} \times
+metric \in \{euclidean, manhattan\}$ (32 combinations, 10.69s). RandomizedSearchCV sampled 20
+combinations from $n\_neighbors \in [1,30]$ with the same weights/metric options (6.07s),
+trading a marginal accuracy difference for roughly 1.75$\times$ less computation.
+
+\section{Results}
+
+\begin{tabular}{lc}
+\toprule
+Metric & Value (Best KNN, GridSearchCV-tuned)\\
+\midrule
+Accuracy & 0.9207 \\
+Precision & 0.9421 \\
+Recall & 0.8512 \\
+F1-score & 0.8944 \\
+ROC-AUC & 0.9712 \\
+\bottomrule
+\end{tabular}
+
+\textbf{Comparison context:} The best Na\"ive Bayes variant, Bernoulli NB, achieved Accuracy
+0.8762, Precision 0.8716, Recall 0.8044, F1 0.8367, ROC-AUC 0.9496 on the same test set --
+Best KNN outperforms it on every metric except training/prediction speed (Section 9).
+
+\section{Result Visualization}
+
+Include all graphs generated during the experiment.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{accuracy_vs_k.png}
+\caption{Accuracy vs. k (KNN, unweighted Euclidean)}
+\end{figure}
+\textbf{Inference:} Accuracy rises steadily from $k=1$ to $k=11$ with no sign of turning
+downward yet, suggesting the optimum $k$ for this dataset lies at or beyond $k=11$ --
+consistent with GridSearchCV independently selecting $k=9$ once distance weighting and the
+Manhattan metric are also allowed to vary.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{gridsearch_heatmap.png}
+\caption{GridSearchCV mean CV accuracy heatmap (n\_neighbors $\times$ weights, metric=euclidean)}
+\end{figure}
+\textbf{Inference:} Accuracy consistently improves moving from \texttt{uniform} to
+\texttt{distance} weighting at every $k$, and generally increases with $k$ up to the tested
+range -- both trends corroborate the accuracy-vs-$k$ curve above and the overall best-parameter
+choice.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{randomsearch_distribution.png}
+\caption{RandomizedSearchCV mean CV score distribution across 20 sampled configurations}
+\end{figure}
+\textbf{Inference:} Most of the 20 randomly sampled hyperparameter combinations cluster in a
+fairly narrow, high-accuracy band (roughly 0.90--0.925), showing KNN's performance on this
+dataset is fairly robust to the exact choice of $k$/metric/weighting once a reasonable
+neighbourhood size is used.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{confusion_matrices.png}
+\caption{Confusion matrices -- Gaussian NB, Multinomial NB, Bernoulli NB, Best KNN}
+\end{figure}
+\textbf{Inference:} Gaussian NB's confusion matrix visibly shows more false positives (ham
+misclassified as spam) than any other model, matching its lower precision figure; Best KNN
+shows the fewest total misclassifications of the four models.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\linewidth]{roc_curves.png}
+\includegraphics[width=0.48\linewidth]{pr_curves.png}
+\caption{ROC curves and Precision-Recall curves for all four models}
+\end{figure}
+\textbf{Inference:} Best KNN's ROC curve dominates the others across almost the entire range
+(highest AUC $=0.971$), with Bernoulli NB close behind ($0.950$). Multinomial NB's curve is
+visibly the weakest, consistent with its lower accuracy and F1. The precision-recall curves
+tell the same story more sharply, since PR curves are more sensitive to class imbalance than
+ROC curves.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\linewidth]{training_time_comparison.png}
+\includegraphics[width=0.48\linewidth]{prediction_time_comparison.png}
+\caption{Training time and prediction time comparison across all four models}
+\end{figure}
+\textbf{Inference:} All three Naive Bayes variants train and predict in single-digit
+milliseconds, matching their theoretical $O(nd)$ training / $O(d)$ prediction cost. Best KNN
+trains almost as fast as Naive Bayes but is roughly 70--150$\times$ slower at
+\emph{prediction}, exactly matching the theoretical expectation that KNN prediction cost
+scales with $n$ while NB prediction cost does not.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{cv_accuracy.png}
+\caption{5-fold cross-validation accuracy -- Bernoulli NB vs. best KNN}
+\end{figure}
+\textbf{Inference:} Best KNN outperforms Bernoulli NB on every single fold, with a
+consistent margin of roughly 3--5 percentage points and noticeably lower fold-to-fold
+variance, confirming its test-set advantage is stable rather than a lucky split.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{classifier_comparison.png}
+\caption{Classifier comparison -- Accuracy / Precision / Recall / F1}
+\end{figure}
+\textbf{Inference:} Best KNN leads on Accuracy, Precision, and F1, while Gaussian NB leads
+only on Recall (at a real precision cost). Bernoulli NB is a clear second place overall,
+ahead of both Gaussian and Multinomial NB on every metric except recall.
+
+\section{Discussion}
+KNN, once tuned, outperforms all three Na\"ive Bayes variants on every classification metric
+for this dataset, at the cost of substantially higher prediction-time complexity -- a direct,
+experimentally confirmed trade-off between accuracy and inference speed. Among the Na\"ive
+Bayes variants, Bernoulli NB is the clear best choice, since Spambase's word-frequency
+features carry most of their discriminative signal in simple presence/absence patterns
+rather than exact counts or continuous distributions. KDTree and BallTree produced identical
+accuracy (both are exact algorithms), with BallTree marginally faster at this scale;
+GridSearchCV found a slightly better configuration than RandomizedSearchCV at roughly
+1.75$\times$ the computation time. A limitation of this experiment is that the accuracy-vs-$k$
+curve had not yet turned downward within the tested range, so the true single-parameter
+optimum $k$ (holding weights/metric fixed) may lie beyond $k=11$; a wider sweep would clarify
+this. Overfitting for very small $k$ (e.g. $k=1$, sensitive to individual noisy points) and
+underfitting for very large $k$ (predictions collapsing toward the overall class balance) are
+both theoretically expected, though this dataset's tested range did not clearly exhibit the
+underfitting regime.
+
+\section{Conclusion}
+For the Spambase dataset, a properly tuned KNN classifier ($k=9$, distance-weighted, Manhattan
+distance) is the best-performing model overall (Accuracy 0.9207, F1 0.8944, ROC-AUC 0.9712),
+outperforming the best Na\"ive Bayes variant (Bernoulli NB) on every classification metric and
+on every fold of 5-fold cross-validation. This advantage comes at a real computational cost:
+KNN's prediction time is roughly two orders of magnitude slower than any Na\"ive Bayes
+variant, which would become the dominant practical concern for a much larger deployment
+dataset. Bernoulli NB is the preferred Na\"ive Bayes variant here, and GridSearchCV is
+preferred over RandomizedSearchCV when the small additional computation cost is acceptable
+for a marginally better hyperparameter configuration.
+
+\section{References}
+\begin{enumerate}[label={[\arabic*]}]
+\item Scikit-learn Documentation, \url{https://scikit-learn.org/stable/}
+\item A. G\'eron, \textit{Hands-On Machine Learning with Scikit-Learn, Keras and TensorFlow}, O'Reilly.
+\item C. M. Bishop, \textit{Pattern Recognition and Machine Learning}, Springer.
+\item Spambase Dataset, Kaggle, \url{https://www.kaggle.com/datasets/somesh24/spambase}
+\end{enumerate}
+
+\end{document}
