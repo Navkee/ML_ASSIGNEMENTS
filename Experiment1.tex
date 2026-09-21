@@ -1,0 +1,452 @@
+
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{ICS1512}
+\rhead{Machine Learning Algorithms Laboratory}
+\cfoot{\thepage}
+
+\lstset{
+language=Python,
+basicstyle=\ttfamily\small,
+numbers=left,
+frame=single,
+breaklines=true,
+showstringspaces=false
+}
+
+\begin{document}
+
+\begin{tabular}{|p{4cm}|p{11cm}|}
+\hline
+Experiment No. & 1 \\ \hline
+Experiment Title & Working with Python Packages -- NumPy, Pandas, SciPy, Scikit-Learn, Matplotlib
+\footnote{\textbf{GitHub Repository: }\url{https://github.com/Barath-j593/ML-assignments}}\\ \hline
+Student Name & NavinKumar S \\ \hline
+Register Number & 3122247001039 \\ \hline
+Faculty & Dr. Poreddy Ajay Kumar Reddy \\ \hline
+Submission Date & 16/08/26 \\ \hline
+\end{tabular}
+
+\section{Objective}
+To explore the core Python libraries used in a Machine Learning workflow -- NumPy, Pandas,
+SciPy, Scikit-learn, and Matplotlib -- and to understand key operations such as array
+manipulation, data preprocessing, mathematical computing, model building, and data
+visualization. Further, to explore publicly available datasets from the UCI Machine Learning
+Repository and Kaggle, identify the type of Machine Learning task associated with each, and
+perform Exploratory Data Analysis (EDA) on them.
+
+\section{Problem Statement}
+Given five publicly available datasets -- Iris, Loan Amount Prediction, Diabetes Prediction,
+Email Spam Classification, and MNIST Handwritten Digit Classification -- the task is to load
+each dataset, identify the Machine Learning task it corresponds to (regression, binary
+classification, or multi-class classification), and perform exploratory data analysis to
+understand its structure, quality, and distribution. The input to the workflow is a raw
+dataset file (CSV); the output is a statistical and visual understanding of the dataset
+(distributions, missing values, correlations, class balance, outliers) that guides the choice
+of feature selection technique and ML algorithm for each dataset.
+
+\section{Dataset Description}
+
+\subsection*{Iris Dataset}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & Iris \\ \hline
+Dataset Source & UCI Machine Learning Repository (via \texttt{sklearn.datasets.load\_iris}) \\ \hline
+Number of Samples & 150 \\ \hline
+Number of Features & 4 (sepal length, sepal width, petal length, petal width) \\ \hline
+Number of Classes & 3 (setosa, versicolor, virginica -- 50 each) \\ \hline
+Missing Values & 0 \\ \hline
+Train-Test Split & Not performed -- exploratory analysis only \\ \hline
+\end{longtable}
+
+\subsection*{Pima Indians Diabetes Dataset}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & Pima Indians Diabetes \\ \hline
+Dataset Source & UCI Machine Learning Repository / Kaggle \\ \hline
+Number of Samples & 768 \\ \hline
+Number of Features & 8 (Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction, Age) \\ \hline
+Number of Classes & 2 (Outcome: 500 non-diabetic, 268 diabetic) \\ \hline
+Missing Values & 0 null cells; however 5 Glucose and 374 Insulin values are recorded as 0, which is physiologically implausible and indicates disguised missing data \\ \hline
+Train-Test Split & Not performed -- exploratory analysis only \\ \hline
+\end{longtable}
+
+\subsection*{Loan Prediction Dataset}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & Loan Prediction \\ \hline
+Dataset Source & Kaggle / Analytics Vidhya \\ \hline
+Number of Samples & 614 \\ \hline
+Number of Features & 11 (excluding Loan\_ID and target Loan\_Status) \\ \hline
+Number of Classes & 2 (Loan\_Status: 422 Approved, 192 Rejected) \\ \hline
+Missing Values & 149 missing cells across 7 columns (worst: Credit\_History -- 50) \\ \hline
+Train-Test Split & Not performed -- exploratory analysis only \\ \hline
+\end{longtable}
+
+\subsection*{SMS Spam Collection Dataset}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & SMS Spam Collection \\ \hline
+Dataset Source & UCI Machine Learning Repository \\ \hline
+Number of Samples & 5,572 \\ \hline
+Number of Features & 1 text feature (message content) \\ \hline
+Number of Classes & 2 (4,825 ham, 747 spam) \\ \hline
+Missing Values & 0 (403 duplicate rows present) \\ \hline
+Train-Test Split & Not performed -- exploratory analysis only \\ \hline
+\end{longtable}
+
+\subsection*{MNIST Dataset (Sample)}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & MNIST Handwritten Digits (3,000-row sample) \\ \hline
+Dataset Source & MNIST database (LeCun et al.), CSV mirror \\ \hline
+Number of Samples & 3,000 \\ \hline
+Number of Features & 784 (28$\times$28 grayscale pixels) \\ \hline
+Number of Classes & 10 (digits 0--9, roughly balanced -- 270 to 332 each) \\ \hline
+Missing Values & 0 \\ \hline
+Train-Test Split & Not performed -- exploratory analysis only \\ \hline
+\end{longtable}
+
+\section{Exploratory Data Analysis}
+Include all relevant visualizations.
+\begin{itemize}
+\item Dataset overview
+\item Statistical summary
+\item Missing value analysis
+\item Class distribution
+\item Correlation matrix
+\item Feature distribution
+\end{itemize}
+
+\subsection*{Iris Dataset}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{iris_species_count.png}
+\caption{Species count plot -- Iris}
+\end{figure}
+\textbf{Inference:} The three species (setosa, versicolor, virginica) are perfectly balanced
+at 50 samples each. This balance means accuracy is a reliable evaluation metric here and no
+class-imbalance handling (e.g. resampling) is required before training a classifier.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\linewidth]{iris_corr.png}
+\caption{Correlation heatmap -- Iris}
+\end{figure}
+\textbf{Inference:} Petal length and petal width are very strongly correlated with each
+other, and both correlate strongly with sepal length, while sepal width correlates weakly
+and even negatively with the other features. This indicates that petal measurements alone
+carry most of the discriminative signal for species classification, and the two petal
+features are partially redundant with one another.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{iris_pairplot.png}
+\caption{Pair plot coloured by species -- Iris}
+\end{figure}
+\textbf{Inference:} Setosa is linearly separable from the other two species on almost every
+feature pair, especially petal length vs. petal width, while versicolor and virginica show
+some overlap. This suggests a simple linear or distance-based classifier (Logistic
+Regression, KNN) should already perform well, with most residual error expected between
+versicolor and virginica.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.45\linewidth]{iris_box_sepal_width.png}
+\caption{Sepal width box plot -- Iris}
+\end{figure}
+\textbf{Inference:} The IQR method flags 4 outlier values in sepal width out of 150 samples
+(about 2.7\%). Given the small number and that Iris is a well-curated benchmark dataset,
+these are most plausibly genuine measurement variation rather than data-entry errors, so
+retaining them is reasonable.
+
+\subsection*{Diabetes Dataset}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{diabetes_hist_glucose.png}
+\caption{Glucose distribution -- Diabetes}
+\end{figure}
+\textbf{Inference:} Glucose is close to a bell-shaped distribution but with a noticeable
+spike of zero values -- 5 records have Glucose $=0$, which is physiologically impossible and
+indicates the value is actually a missing-data placeholder rather than a true zero reading.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{diabetes_class_count.png}
+\caption{Outcome class distribution -- Diabetes}
+\end{figure}
+\textbf{Inference:} Outcome is imbalanced (500 non-diabetic vs. 268 diabetic, roughly 65:35).
+This is mild but non-trivial imbalance, so precision, recall, and F1-score for the positive
+class should be reported alongside accuracy, and class weighting or resampling could improve
+recall on the minority (diabetic) class.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.45\linewidth]{diabetes_box_insulin.png}
+\caption{Insulin box plot -- Diabetes}
+\end{figure}
+\textbf{Inference:} The IQR test flags 34 outliers in Insulin. Combined with the fact that
+374 of 768 records (about 49\%) have Insulin exactly equal to 0, this again points to
+placeholder zeros for unrecorded measurements rather than genuine physiological readings --
+this column will need explicit missing-value imputation rather than outlier removal.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{diabetes_corr.png}
+\caption{Correlation heatmap -- Diabetes}
+\end{figure}
+\textbf{Inference:} Glucose shows the strongest correlation with Outcome (Pearson $r \approx
+0.47$) of any single feature, consistent with its clinical role in diabetes diagnosis. Other
+features (BMI, Age, Pregnancies) show weaker but still positive associations, while no pair
+of predictors is correlated highly enough to suggest serious multicollinearity.
+
+\subsection*{Loan Prediction Dataset}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{loan_missing.png}
+\caption{Missing value heatmap -- Loan Prediction}
+\end{figure}
+\textbf{Inference:} Missing values are spread across seven columns, most severely
+Credit\_History (50 missing), Self\_Employed (32), and LoanAmount (22). Credit\_History is
+typically the single strongest predictor of loan approval, so its missingness needs careful
+handling (mode/most-frequent imputation, or a separate ``unknown'' category) rather than
+row deletion, which would discard a meaningful fraction of the 614 records.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{loan_hist_income.png}
+\caption{Applicant income distribution -- Loan Prediction}
+\end{figure}
+\textbf{Inference:} Applicant income is heavily right-skewed (skewness $\approx 6.5$), with
+most applicants clustered at lower incomes and a long tail of high earners. This strongly
+suggests a log transformation before feeding income into a regression model, and explains
+why 50 values are flagged as IQR outliers on the raw scale.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{loan_status_count.png}
+\caption{Loan status distribution -- Loan Prediction}
+\end{figure}
+\textbf{Inference:} Loan\_Status is imbalanced, with about 69\% of applications approved (Y:
+422) versus 31\% rejected (N: 192). This imbalance should be reflected in the evaluation
+metric choice (F1/recall on the rejected class matter as much as overall accuracy) if the
+downstream task is framed as approval classification rather than amount regression.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\linewidth]{loan_property_area.png}
+\caption{Property area distribution -- Loan Prediction}
+\end{figure}
+\textbf{Inference:} Applications are reasonably distributed across the three property-area
+categories (Urban, Semiurban, Rural), with no single category dominating -- so one-hot
+encoding this feature should not introduce severe sparsity or imbalance concerns.
+
+\subsection*{Email Spam Dataset}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\linewidth]{spam_class_count.png}
+\caption{Ham vs. spam class distribution}
+\end{figure}
+\textbf{Inference:} The dataset is strongly imbalanced -- 4,825 ham messages versus only 747
+spam (about 87:13). A classifier trained naively on raw accuracy could reach $\sim$87\% by
+always predicting ``ham,'' so precision/recall/F1 on the spam class, or techniques such as
+class weighting, are essential for a meaningful evaluation.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{spam_char_len.png}
+\caption{Character length distribution -- Spam}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{spam_word_count.png}
+\caption{Word count distribution -- Spam}
+\end{figure}
+\textbf{Inference:} Message length is itself discriminative: spam messages average about 139
+characters versus roughly 71 for ham -- almost double. Both distributions are right-skewed
+with a long tail toward longer messages, so character/word count could be added as an
+engineered feature alongside TF-IDF text features.
+
+\subsection*{MNIST Dataset}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{mnist_class_count.png}
+\caption{Digit class distribution -- MNIST}
+\end{figure}
+\textbf{Inference:} The 10 digit classes are close to balanced in this sample, ranging from
+270 (digit 5) to 332 (digit 1) examples -- roughly a 20\% spread. This near-balance means
+accuracy remains a reasonable primary metric, though a per-class confusion matrix is still
+useful given digits like 4/9 or 3/8 are visually similar and prone to confusion.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{mnist_samples.png}
+\caption{Sample digit images -- MNIST}
+\end{figure}
+\textbf{Inference:} The sample grid confirms the images are correctly labelled, centered,
+grayscale $28\times28$ handwritten digits consistent with the standard MNIST format, with
+visible natural variation in stroke width and slant across samples of the same digit.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{mnist_pixel_dist.png}
+\caption{Pixel intensity distribution -- MNIST}
+\end{figure}
+\textbf{Inference:} Pixel values range from 0 to 255 with a mean of about 33 and a large
+standard deviation ($\approx$78), and only about 19\% of pixels are non-zero. This confirms
+the images are mostly dark background with sparse bright strokes, and supports normalizing
+pixel values (dividing by 255) before feeding them into a CNN or any distance-based model.
+
+\section{Data Preprocessing}
+
+Explain:
+\begin{itemize}
+\item \textbf{Missing value handling:} Iris and MNIST require no imputation. Diabetes needs
+the disguised zero-placeholders in Glucose and Insulin replaced with median/mean imputation
+per Outcome class. Loan needs mode imputation for categorical columns (Gender,
+Self\_Employed, Credit\_History) and median imputation for LoanAmount.
+\item \textbf{Encoding:} Categorical features in Loan (Gender, Married, Education,
+Self\_Employed, Property\_Area) and the target labels in Diabetes/Spam/Iris/Loan require
+Label or One-Hot Encoding before modelling.
+\item \textbf{Feature scaling:} Diabetes and Loan numeric features (Glucose, BMI,
+ApplicantIncome) span very different ranges and should be standardized
+(\texttt{StandardScaler}) or normalized (\texttt{MinMaxScaler}). MNIST pixel values should be
+scaled to $[0,1]$ by dividing by 255.
+\item \textbf{Train-test split:} Not performed in this experiment, which is limited to
+exploratory analysis; a typical 80:20 or 70:30 stratified split would be used in a subsequent
+modelling experiment.
+\item \textbf{Feature engineering (if applicable):} For Spam, message character length and
+word count (already explored in Section 4) could be added as engineered numeric features
+alongside text-vectorized (TF-IDF) features.
+\end{itemize}
+
+\section{Machine Learning Algorithm}
+
+Based on the EDA findings, the following algorithms are recommended for each dataset (feature
+selection technique and full task identification is summarized in the table below).
+
+\begin{longtable}{|p{3.3cm}|p{2.6cm}|p{3.6cm}|p{4.7cm}|}
+\hline
+\textbf{Dataset} & \textbf{Type of ML Task} & \textbf{Feature Selection Technique} & \textbf{Suitable ML Algorithm} \\ \hline
+\endhead
+Iris & Supervised -- Multi-class Classification & ANOVA F-test (\texttt{SelectKBest} with \texttt{f\_classif}) & Logistic Regression / K-Nearest Neighbors / Decision Tree \\ \hline
+Loan Amount Prediction & Supervised -- Regression & Correlation analysis, ANOVA F-test (\texttt{f\_regression}) & Linear Regression / Random Forest Regressor \\ \hline
+Predicting Diabetes & Supervised -- Binary Classification & Chi-square test (\texttt{SelectKBest} with \texttt{chi2}) & Logistic Regression / Random Forest Classifier \\ \hline
+Classification of Email Spam & Supervised -- Binary Classification (Text) & Chi-square test on TF-IDF/Bag-of-Words features & Naive Bayes / Support Vector Machine (SVM) \\ \hline
+Handwritten Character Recognition / MNIST & Supervised -- Multi-class Classification (Image) & Variance thresholding / PCA (dimensionality reduction over pixel features) & Convolutional Neural Network (CNN) / SVM / Random Forest \\ \hline
+\end{longtable}
+
+\textbf{Working principle (representative example -- Logistic Regression):} Models the
+probability of a binary/multi-class outcome using a linear combination of input features
+passed through a sigmoid (or softmax) function, trained by minimizing log-loss via gradient
+descent.
+
+\textbf{Mathematical formulation:}
+$$P(y=1\mid x) = \sigma(w^\top x + b) = \frac{1}{1+e^{-(w^\top x + b)}}$$
+
+\textbf{Advantages:} Simple, interpretable, computationally cheap, works well when classes
+are near-linearly separable (as seen for setosa in the Iris pair plot).
+
+\textbf{Limitations:} Struggles with non-linear decision boundaries and is sensitive to
+unscaled features and multicollinearity -- both relevant given the skewed income feature in
+the Loan dataset and the correlated petal measurements in Iris.
+
+\section{Experimental Setup}
+\begin{tabular}{ll}
+\toprule
+Python Version & 3.11.9\\
+Scikit-Learn Version & 1.8.0\\
+IDE & Jupyter Notebook \\
+Operating System & Window\\
+Hardware &  Victus by HP Gaming Laptop 15-fa2xxx\\
+\bottomrule
+\end{tabular}
+
+\section{Hyperparameter Selection}
+Not applicable for this experiment -- Experiment 1 covers library exploration, dataset
+identification, and EDA only; no model was trained or tuned.
+
+\begin{tabular}{ll}
+\toprule
+Parameter & Value\\
+\midrule
+-- & -- \\
+\bottomrule
+\end{tabular}
+
+\section{Results}
+Not applicable for this experiment -- no model was trained. The equivalent deliverable for
+this experiment, the ML task/feature-selection/algorithm identification table, is provided in
+Section 6.
+
+\begin{tabular}{lc}
+\toprule
+Metric & Value\\
+\midrule
+Accuracy & -- \\
+Precision & -- \\
+Recall & -- \\
+F1-score & -- \\
+ROC-AUC & -- \\
+\bottomrule
+\end{tabular}
+
+\section{Result Visualization}
+Not applicable for this experiment -- no model was trained, so no confusion matrix, ROC
+curve, or learning curve is available. The dataset-level visualizations (distributions,
+correlations, class balance) generated for this experiment are provided in Section 4.
+
+\section{Discussion}
+Across all five datasets, EDA surfaced issues that would materially affect modelling: disguised
+missing values (zeros) in Diabetes, genuine missing values concentrated in a few key columns
+in Loan, class imbalance in Diabetes/Loan/Spam, and a heavily right-skewed income feature in
+Loan. Iris and MNIST were the cleanest datasets, with no missing values and reasonably
+balanced classes. These findings directly justify the feature selection technique and
+algorithm choices recommended in Section 6 -- e.g. chi-square/ANOVA tests for the tabular
+datasets, TF-IDF-based selection for text, and PCA/variance thresholding for the
+high-dimensional MNIST pixel features.
+
+\section{Conclusion}
+This experiment explored the core NumPy, Pandas, SciPy, Scikit-learn, and Matplotlib/Seaborn
+functionality needed for a Machine Learning workflow, and used it to identify the ML task
+type, suitable feature selection technique, and suitable algorithm for five public datasets
+(Iris, Loan Amount Prediction, Diabetes Prediction, Email Spam Classification, and MNIST /
+Handwritten Character Recognition). Exploratory data analysis on the real datasets revealed
+concrete data-quality issues (disguised missing values, skewed distributions, class
+imbalance) that will directly inform preprocessing decisions in subsequent experiments.
+
+\section{References}
+\begin{enumerate}[label={[\arabic*]}]
+\item R. A. Fisher, ``The Use of Multiple Measurements in Taxonomic Problems,'' \textit{Annals of Eugenics}, 1936. Dataset accessed via \url{https://scikit-learn.org/stable/datasets/toy_dataset.html}
+\item National Institute of Diabetes and Digestive and Kidney Diseases, ``Pima Indians Diabetes Dataset,'' UCI Machine Learning Repository, \url{https://archive.ics.uci.edu/}
+\item Analytics Vidhya, ``Loan Prediction Dataset,'' Kaggle, \url{https://www.kaggle.com/datasets}
+\item T. A. Almeida, J. M. G. Hidalgo, ``SMS Spam Collection Dataset,'' UCI Machine Learning Repository, \url{https://archive.ics.uci.edu/}
+\item Y. LeCun, C. Cortes, C. J. C. Burges, ``The MNIST Database of Handwritten Digits,'' \url{http://yann.lecun.com/exdb/mnist/}
+\item Scikit-learn Documentation, \url{https://scikit-learn.org/stable/}
+\item Pandas Documentation, \url{https://pandas.pydata.org/docs/}
+\end{enumerate}
+
+\end{document}
+
