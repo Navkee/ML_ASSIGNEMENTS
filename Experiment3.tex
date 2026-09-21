@@ -1,0 +1,292 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{ICS1512}
+\rhead{Machine Learning Algorithms Laboratory}
+\cfoot{\thepage}
+
+\lstset{
+language=Python,
+basicstyle=\ttfamily\small,
+numbers=left,
+frame=single,
+breaklines=true,
+showstringspaces=false
+}
+
+\begin{document}
+
+\begin{tabular}{|p{4cm}|p{11cm}|}
+\hline
+Experiment No. & 3 \\ \hline
+Experiment Title & Regression Analysis using Linear and Regularized Models
+\footnote{\textbf{GitHub Repository: }\url{https://github.com/Barath-j593/ML-assignments}}\\ \hline
+Student Name & NavinKumar S \\ \hline
+Register Number & 3122247001039\\ \hline
+Faculty & Dr. Poreddy Ajay Kumar Reddy \\ \hline
+Submission Date & 02/08/26 \\ \hline
+\end{tabular}
+
+\section{Objective}
+To implement Linear, Ridge, Lasso, and Elastic Net regression models to predict a continuous
+target variable -- the requested loan amount -- tune regularization hyperparameters via
+GridSearchCV, evaluate performance using multiple regression metrics, visualize model
+behaviour, and analyze overfitting, underfitting, and bias--variance characteristics.
+
+\section{Problem Statement}
+Given the Kaggle \textit{Predict Loan Amount Data} dataset of 20,000 customer loan
+applications with demographic, financial, employment, and property-related features, the
+problem is regression: predict the continuous \texttt{Loan Amount Request (USD)} for each
+applicant. The input is a mixed categorical/numerical feature vector per applicant; the
+output is a continuous dollar value. The objective is to determine which regularization
+strategy (if any) generalizes best, and to characterize the bias--variance behaviour of each
+model on this dataset.
+
+\section{Dataset Description}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & Predict Loan Amount Data \\ \hline
+Dataset Source & Kaggle -- \textit{Predict Loan Amount Data} \\ \hline
+Number of Samples & 20,000 \\ \hline
+Number of Features & 19 used (10 categorical, 9 numerical) -- expands to 45 after one-hot encoding \\ \hline
+Number of Classes & N/A -- regression target (continuous), range 6{,}185--576{,}336 USD \\ \hline
+Missing Values & Gender (31), Income (750), Income Stability (813), Type of Employment (4{,}689), Current Loan Expenses (83), Dependents (1{,}142), Credit Score (743), Has Active Credit Card (1{,}076), Property Age (892), Property Location (160), plus disguised ``?'' placeholders in Property Price (168) and Co-Applicant (77) \\ \hline
+Train-Test Split & 80:20 (16,000 train / 4,000 test), \texttt{random\_state=42} \\ \hline
+\end{longtable}
+
+\section{Exploratory Data Analysis}
+Include all relevant visualizations.
+\begin{itemize}
+\item Dataset overview
+\item Statistical summary
+\item Missing value analysis
+\item Class distribution (not applicable -- regression target)
+\item Correlation matrix (feature-vs-target correlations reported below)
+\item Feature distribution
+\end{itemize}
+
+\subsection*{Target Distribution}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\linewidth]{target_distribution.png}
+\caption{Target variable (Loan Amount Request) distribution}
+\end{figure}
+\textbf{Inference:} The requested loan amount is right-skewed (skewness $\approx 1.28$),
+with most requests concentrated below 150{,}000 USD and a tail extending to over 500{,}000
+USD. With 20,000 samples, the extreme tail has limited influence on the overall shape
+compared to a smaller dataset.
+
+\subsection*{Feature Distribution / Correlation with Target}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{scatter_Property.png}
+\caption{Property Price vs. Loan Amount Request}
+\end{figure}
+\textbf{Inference:} Property Price shows an extremely strong, almost linear positive
+relationship with the requested loan amount ($r \approx 0.961$) -- by far the strongest
+relationship of any feature, and the dominant driver of every model's predictions.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{scatter_Income.png}
+\caption{Income (USD) vs. Loan Amount Request}
+\end{figure}
+\textbf{Inference:} Income shows a much weaker positive relationship with loan amount
+($r \approx 0.364$) than Property Price -- applicants with similar incomes still request
+widely varying loan amounts, indicating income alone is a poor predictor without the
+property-value context.
+
+\section{Data Preprocessing}
+Explain:
+\begin{itemize}
+\item \textbf{Missing value handling:} \texttt{Property Price} and \texttt{Co-Applicant}
+encode missing data as the literal string ``?'' rather than a blank cell; both were converted
+to \texttt{NaN} and then to numeric type. All categorical columns with missing values were
+then imputed with their mode, and all numerical columns with missing values were imputed with
+their median. \texttt{Customer ID}, \texttt{Name}, and \texttt{Property ID} were dropped as
+unique identifiers with no generalizable signal.
+\item \textbf{Encoding:} All ten categorical features (Gender, Income Stability, Profession,
+Type of Employment, Location, Expense Type 1, Expense Type 2, Has Active Credit Card,
+Property Type, Property Location) were one-hot encoded (\texttt{drop="first"}), expanding 19
+raw input features into 45 encoded features.
+\item \textbf{Feature scaling:} Age, Income, Current Loan Expenses, Dependents, Credit Score,
+No. of Defaults, Property Age, Co-Applicant, and Property Price were standardized (zero mean,
+unit variance) using \texttt{StandardScaler}, fit only on the training split.
+\item \textbf{Train-test split:} 80:20 (16,000 train / 4,000 test rows), implemented inside a
+single \texttt{Pipeline} (preprocessing $\rightarrow$ model) to prevent data leakage across
+cross-validation folds and the held-out test set.
+\item \textbf{Feature engineering:} Not applied in this experiment -- the 19 raw features
+were used directly after encoding/scaling.
+\end{itemize}
+
+\section{Machine Learning Algorithm}
+Explain:
+\begin{itemize}
+\item \textbf{Working principle:} Linear Regression fits a linear combination of input
+features to minimize squared error against the continuous target. Ridge Regression adds an
+$L_2$ penalty on coefficient magnitudes to shrink them toward zero without eliminating any.
+Lasso Regression adds an $L_1$ penalty that can shrink coefficients exactly to zero,
+performing implicit feature selection. Elastic Net linearly combines both $L_1$ and $L_2$
+penalties, controlled by a mixing parameter (l1\_ratio).
+\item \textbf{Mathematical formulation:}
+$$\hat{y} = w^\top x + b, \qquad
+J(w) = \underbrace{\|y - Xw\|_2^2}_{\text{OLS loss}} + \underbrace{\alpha\|w\|_2^2}_{\text{Ridge}}
+\ \text{or}\ \underbrace{\alpha\|w\|_1}_{\text{Lasso}}
+\ \text{or}\ \underbrace{\alpha\left(r\|w\|_1 + \tfrac{1-r}{2}\|w\|_2^2\right)}_{\text{Elastic Net}}$$
+where $\alpha$ controls overall regularization strength and $r$ (l1\_ratio) controls the
+$L_1$/$L_2$ mix in Elastic Net.
+\item \textbf{Advantages:} Linear Regression is simple, fast, and fully interpretable.
+Ridge handles multicollinearity gracefully by shrinking correlated coefficients together.
+Lasso performs automatic feature selection, useful when many features are irrelevant.
+Elastic Net balances both behaviours when the number/correlation structure of useful features
+is uncertain.
+\item \textbf{Limitations:} All four are linear models and cannot capture non-linear
+feature--target relationships. Ridge never produces a sparse (zero-coefficient) model even
+when many features are irrelevant. Lasso can behave erratically with strongly correlated
+features (arbitrarily picking one over another). Elastic Net introduces a second
+hyperparameter to tune, increasing search cost.
+\end{itemize}
+
+\section{Experimental Setup}
+\begin{tabular}{ll}
+\toprule
+Python Version & \\
+Scikit-Learn Version & \\
+IDE & Jupyter Notebook \\
+Operating System & \\
+Hardware & \\
+\bottomrule
+\end{tabular}
+
+\section{Hyperparameter Selection}
+
+\begin{tabular}{ll}
+\toprule
+Parameter & Value\\
+\midrule
+Ridge -- best $\alpha$ (GridSearchCV) & 10 \\
+Ridge -- best CV $R^2$ & 0.9302 \\
+Lasso -- best $\alpha$ (GridSearchCV) & 10 \\
+Lasso -- best CV $R^2$ & 0.9303 \\
+Elastic Net -- best $\alpha$ (GridSearchCV) & 0.01 \\
+Elastic Net -- best l1\_ratio (GridSearchCV) & 0.8 \\
+Elastic Net -- best CV $R^2$ & 0.9302 \\
+\bottomrule
+\end{tabular}
+
+\textbf{Note:} Search spaces followed the assignment specification: Ridge
+$\alpha \in \{0.01, 0.1, 1, 10, 100\}$; Lasso $\alpha \in \{0.001, 0.01, 0.1, 1, 10\}$;
+Elastic Net $\alpha \in \{0.01, 0.1, 1, 10\}$, l1\_ratio $\in \{0.2, 0.5, 0.8\}$, all searched
+via 5-fold \texttt{GridSearchCV} optimizing $R^2$.
+
+\section{Results}
+
+\begin{tabular}{lc}
+\toprule
+Metric (Regression) & Value (Best Model: Lasso Regression, Test Set)\\
+\midrule
+MAE & 10{,}890.31 \\
+MSE & 232{,}800{,}718 \\
+RMSE & 15{,}257.81 \\
+R\textsuperscript{2} & 0.9356 \\
+Training Time (s) & 0.0928 \\
+\bottomrule
+\end{tabular}
+
+\textbf{Note:} The template's classification metrics (Accuracy/Precision/Recall/ROC-AUC) do
+not apply to this regression task and have been replaced with the standard regression
+metrics specified in the assignment (MAE, MSE, RMSE, $R^2$, Training Time). All four models
+performed within 0.01\% $R^2$ of each other on the test set (Linear 0.9355, Ridge 0.9355,
+Lasso 0.9356, Elastic Net 0.9356).
+
+\section{Result Visualization}
+
+Include all graphs generated during the experiment.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{predicted_vs_actual.png}
+\caption{Predicted vs. actual Loan Amount Request -- best model (Lasso Regression)}
+\end{figure}
+\textbf{Inference:} Points cluster tightly along the ideal $y=x$ line across almost the
+entire range, only fanning out slightly at the highest loan amounts -- visually confirming
+the high test $R^2$ ($\approx 0.936$) and showing the model generalizes well.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{residual_plot.png}
+\caption{Residual plot -- best model (Lasso Regression)}
+\end{figure}
+\textbf{Inference:} Residuals are centered close to zero (mean $\approx -309$, small
+relative to the target's scale) and show only mild fanning at higher predicted values --
+a much weaker heteroscedasticity pattern than the target's skew alone would suggest, since
+Property Price's near-linear relationship with the target absorbs most of that structure.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{train_val_error.png}
+\caption{Learning curve (training vs. validation RMSE) -- best model (Lasso Regression)}
+\end{figure}
+\textbf{Inference:} Training RMSE ($\approx$15{,}700--16{,}500) and validation RMSE
+($\approx$15{,}800--16{,}200) stay close together at every training size and both decrease as
+more data is added, converging toward a shared, low-error plateau -- the signature of a
+well-fit model with neither severe overfitting nor severe underfitting.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{coefficient_comparison.png}
+\caption{Feature importance -- coefficient comparison across models (top 8 features by |Linear coefficient|)}
+\end{figure}
+\textbf{Inference:} Property Price dominates every model's coefficients by an order of
+magnitude over any other feature (Linear: 51{,}583 vs. the next largest at 7{,}727 for
+Current Loan Expenses). Lasso zeroes out three of the remaining top-8 features entirely
+(Profession\_Unemployed, Type of Employment\_Realty agents, Type of Employment\_IT staff),
+while Ridge and Elastic Net shrink but retain all of them -- the expected Lasso-vs-Ridge
+sparsity contrast.
+
+\section{Discussion}
+Unlike a weaker-signal regression problem, this dataset -- with Property Price as a feature
+-- produces a strong, well-behaved fit: all four models achieve test $R^2 \approx 0.935$--
+$0.936$. Because the unregularized Linear Regression baseline was already close to the
+regularized models' performance, regularization strength was not the binding constraint here
+-- there was very little overfitting for $L_1$/$L_2$ penalties to correct. Lasso achieved the
+best (marginally) test performance by trimming a handful of low-signal categorical dummy
+variables without disturbing the dominant numeric predictors. A limitation of this experiment
+is that with one feature (Property Price) so overwhelmingly dominant, the experiment offers
+limited insight into how these models would behave on a dataset with more diffuse,
+comparably-weighted feature signal; a useful follow-up would be to refit after removing
+Property Price to observe whether regularization becomes more consequential.
+
+\section{Conclusion}
+For the Predict Loan Amount Data dataset, Lasso Regression (tuned to $\alpha=10$) is
+marginally the best-performing model on both cross-validation ($R^2=0.9303$) and the held-out
+test set (RMSE $=15{,}257.81$, $R^2=0.9356$), though all four models are within 0.01\%
+$R^2$ of one another. Property Price alone accounts for the overwhelming majority of
+predictive power. The learning curve shows converging, low training/validation error with no
+meaningful gap, indicating this experiment sits in a low-bias, low-variance regime where
+additional regularization tuning offers negligible practical benefit over plain Linear
+Regression.
+
+\section{References}
+\begin{enumerate}[label={[\arabic*]}]
+\item Scikit-learn Developers, ``Linear Models,'' \url{https://scikit-learn.org/stable/modules/linear_model.html}
+\item Scikit-learn Developers, ``Tuning the hyper-parameters of an estimator,'' \url{https://scikit-learn.org/stable/modules/grid_search.html}
+\item Kaggle, ``Predict Loan Amount Data,'' \url{https://www.kaggle.com/datasets}
+\end{enumerate}
+
+\end{document}
