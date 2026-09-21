@@ -1,0 +1,365 @@
+
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{ICS1512}
+\rhead{Machine Learning Laboratory}
+\cfoot{\thepage}
+
+\lstset{
+language=Python,
+basicstyle=\ttfamily\small,
+numbers=left,
+frame=single,
+breaklines=true,
+showstringspaces=false
+}
+
+\begin{document}
+
+\begin{tabular}{|p{4cm}|p{11cm}|}
+\hline
+Experiment No. & 7 \\ \hline
+Experiment Title & Bagging, Boosting, and Stacked Ensemble Models
+\footnote{\textbf{GitHub Repository: }\url{https://github.com/Barath-j593/ML-assignments}}\\ \hline
+
+Student Name & NavinKumar S \\ \hline
+Register Number & 3122247001039 \\ \hline
+Faculty & Dr. Poreddy Ajay Kumar Reddy \\ \hline
+Submission Date & 02/08/26 \\ \hline
+\end{tabular}
+
+\section{Objective}
+To understand ensemble learning strategies -- Bagging, Boosting, and Stacking -- implement
+Bagging and Boosting classifiers, build a Stacked Ensemble using multiple heterogeneous base
+learners, compare all three approaches in terms of accuracy, stability, and generalization,
+and analyze their effect on the bias--variance trade-off.
+
+\section{Problem Statement}
+Given the Wisconsin Diagnostic Breast Cancer dataset of 30 numerical features, the problem is
+binary classification: predict malignant vs. benign. The objective is to determine whether
+combining multiple models -- via bootstrap aggregation (Bagging), sequential error correction
+(Boosting), or a learned meta-combination (Stacking) -- improves accuracy and stability over
+individual base learners, and to characterize how each ensemble strategy affects bias and
+variance differently.
+
+\section{Dataset Description}
+\begin{longtable}{|p{6cm}|p{8cm}|}
+\hline
+Dataset Name & Wisconsin Diagnostic Breast Cancer (WDBC) \\ \hline
+Dataset Source & UCI Machine Learning Repository -- \url{https://archive.ics.uci.edu} (loaded via \texttt{sklearn.datasets.load\_breast\_cancer}) \\ \hline
+Number of Samples & 569 \\ \hline
+Number of Features & 30 numerical attributes (mean, standard error, and ``worst'' value of 10 cell-nucleus measurements) \\ \hline
+Number of Classes & 2 (357 benign / 212 malignant) \\ \hline
+Missing Values & 0 \\ \hline
+Train-Test Split & 80:20 stratified (455 train / 114 test), \texttt{random\_state=42} \\ \hline
+\end{longtable}
+
+\section{Exploratory Data Analysis}
+Include all relevant visualizations.
+\begin{itemize}
+\item Dataset overview
+\item Statistical summary
+\item Missing value analysis
+\item Class distribution
+\item Correlation matrix
+\item Feature distribution
+\end{itemize}
+
+\subsection*{Class Distribution}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\linewidth]{class_distribution.png}
+\caption{Class distribution -- Breast Cancer Wisconsin (Diagnostic)}
+\end{figure}
+\textbf{Inference:} The dataset is mildly imbalanced (357 benign vs. 212 malignant, about
+63:37). No missing values are present, so no missing-value visualization is required.
+
+\subsection*{Correlation Matrix}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{correlation_heatmap.png}
+\caption{Correlation heatmap -- top 12 features correlated with diagnosis}
+\end{figure}
+\textbf{Inference:} ``Worst concave points'', ``worst perimeter'', ``worst radius'', and
+``mean concave points'' correlate most strongly with diagnosis ($|r| > 0.7$), the same
+features that dominated feature importance in the single Decision Tree / Random Forest
+experiment on this dataset -- these cell-nucleus size and shape irregularities are the
+primary drivers every model in this experiment learns from.
+
+\section{Data Preprocessing}
+Explain:
+\begin{itemize}
+\item \textbf{Label encoding:} The target is already numerically encoded by scikit-learn
+(0 = malignant, 1 = benign); no additional encoding step was required.
+\item \textbf{Missing value handling:} Not required -- the dataset contains zero missing
+values across all 569 rows and 30 features.
+\item \textbf{Feature scaling:} Not required for the Decision Tree, Bagging, AdaBoost, or
+Gradient Boosting components (tree-based, invariant to monotonic scaling). The Stacked
+Ensemble's SVM base learner is technically scale-sensitive, but was left unscaled here
+consistent with the assignment's base-model specification; this is noted as a limitation in
+Section 14.
+\item \textbf{Train-test split:} 80:20 stratified split (455 train / 114 test rows),
+preserving the 63:37 class ratio in both subsets.
+\end{itemize}
+
+\section{Machine Learning Algorithm}
+Explain:
+\begin{itemize}
+\item \textbf{Working principle:} \textbf{Bagging} trains many independent copies of a base
+estimator (here, Decision Trees) on different bootstrap samples of the training data and
+aggregates their predictions by majority vote -- primarily reduces variance. \textbf{Boosting}
+trains models sequentially, where each new model focuses on the samples the previous ones
+got wrong (AdaBoost re-weights misclassified samples; Gradient Boosting fits new trees to the
+residual errors of the ensemble so far) -- primarily reduces bias. \textbf{Stacking} trains
+several diverse base models (here: SVM, Gaussian Naive Bayes, Decision Tree) and a
+meta-learner (Logistic Regression) that learns how to optimally combine their predictions,
+using cross-validated out-of-fold predictions as the meta-learner's training input.
+\item \textbf{Mathematical formulation:}
+$$\hat{y}_{\text{bag}} = \operatorname*{mode}_{i=1,\dots,B} T_i(x), \quad T_i \text{ trained on bootstrap sample } i$$
+$$F_m(x) = F_{m-1}(x) + \eta \cdot h_m(x) \quad \text{(Gradient Boosting, } \eta \text{ = learning rate)}$$
+$$\hat{y}_{\text{stack}} = g\big(f_1(x), f_2(x), \dots, f_k(x)\big) \quad \text{(} g \text{ = meta-learner, } f_i \text{ = base learners)}$$
+\item \textbf{Advantages:} Bagging is simple, parallelizable, and reliably reduces variance
+for high-variance base learners like deep trees. Boosting can achieve very high accuracy by
+directly targeting the errors of previous models. Stacking can outperform any single
+ensemble strategy by exploiting complementary strengths of heterogeneous models.
+\item \textbf{Limitations:} Bagging cannot reduce bias -- if the base learner is
+systematically wrong, averaging many copies of it will not fix that. Boosting is sequential
+(cannot parallelize across estimators) and more prone to overfitting on noisy data if
+learning rate/depth are not controlled. Stacking is the most computationally expensive (it
+internally cross-validates every base learner) and, as observed in this experiment
+(Section 12), can be less stable across folds than simpler ensembles if the meta-learner
+overfits to base-learner quirks in a small dataset.
+\end{itemize}
+
+\section{Experimental Setup}
+\begin{tabular}{ll}
+\toprule
+Python Version & \\
+Scikit-Learn Version & \\
+IDE & Jupyter Notebook \\
+Operating System & \\
+Hardware & \\
+\bottomrule
+\end{tabular}
+
+\section{Hyperparameter Selection}
+
+\begin{longtable}{|p{2.6cm}|p{2.6cm}|p{5.7cm}|p{2.3cm}|}
+\hline
+\textbf{Model} & \textbf{Search Method} & \textbf{Best Parameters} & \textbf{Best CV Accuracy} \\ \hline
+\endhead
+Bagging & Grid Search & n\_estimators=50, max\_samples=0.5, max\_features=0.5 & 0.9604 \\ \hline
+Boosting (Gradient Boosting) & Grid Search & n\_estimators=200, learning\_rate=0.1, max\_depth=1 & 0.9758 \\ \hline
+AdaBoost (secondary) & Grid Search & n\_estimators=100, learning\_rate=1.0 & 0.9802 \\ \hline
+Stacked Ensemble & Base model choice (SVM+NB+DT vs. SVM+DT) & SVM + Gaussian NB + Decision Tree $\rightarrow$ Logistic Regression & 0.9538 \\ \hline
+\end{longtable}
+
+\textbf{Note:} Bagging was searched over n\_estimators $\in \{10,50,100,200\} \times
+max\_samples \in \{0.5,0.7,1.0\} \times max\_features \in \{0.5,0.7,1.0\}$ (36 combinations).
+Boosting (Gradient Boosting, used as the primary tunable representative) was searched over
+n\_estimators $\in \{50,100,200\} \times$ learning\_rate $\in \{0.01,0.1,0.5,1.0\} \times
+max\_depth \in \{1,2,3\}$ (36 combinations); AdaBoost was separately tuned over n\_estimators
+and learning\_rate as a secondary boosting comparison. For Stacking, the assignment's
+hyperparameter space is the choice of base models and final estimator rather than numeric
+values: the specified (SVM, Naive Bayes, Decision Tree $\to$ Logistic Regression) combination
+achieved 0.9538 average CV accuracy, versus 0.9231 for a reduced (SVM, Decision Tree)
+combination -- confirming that the third, heterogeneous base learner (Naive Bayes)
+meaningfully helped the meta-learner.
+
+\subsection*{Bagging Cross-Fold Results (summarized by n\_estimators, max\_samples)}
+\begin{longtable}{|p{3cm}|p{3cm}|p{4cm}|}
+\hline
+\textbf{n\_estimators} & \textbf{max\_samples} & \textbf{Avg CV Accuracy} \\ \hline
+\endhead
+10 & 1.0 & 0.9538 \\ \hline
+50 & 0.7 & 0.9553 \\ \hline
+50 & 1.0 & 0.9553 \\ \hline
+100 & 0.7 & 0.9590 \\ \hline
+100 & 1.0 & 0.9560 \\ \hline
+200 & 0.7 & 0.9590 \\ \hline
+200 & 1.0 & 0.9568 \\ \hline
+\end{longtable}
+\textbf{Inference:} Accuracy is fairly stable (0.950--0.959) across the grid, with a mild
+peak around n\_estimators=100--200 and max\_samples=0.7 -- Bagging shows much less
+hyperparameter sensitivity than the Decision Tree's own depth parameter did in the earlier
+single-tree experiment.
+
+\subsection*{Boosting Cross-Fold Results (summarized by n\_estimators, learning\_rate)}
+\begin{longtable}{|p{3cm}|p{3cm}|p{4cm}|}
+\hline
+\textbf{n\_estimators} & \textbf{learning\_rate} & \textbf{Avg CV Accuracy} \\ \hline
+\endhead
+50 & 0.01 & 0.9238 \\ \hline
+50 & 0.5 & 0.9641 \\ \hline
+100 & 0.1 & 0.9575 \\ \hline
+100 & 0.5 & \textbf{0.9685} \\ \hline
+200 & 0.1 & 0.9678 \\ \hline
+200 & 0.5 & 0.9685 \\ \hline
+200 & 1.0 & 0.9634 \\ \hline
+\end{longtable}
+\textbf{Inference:} Very low learning\_rate (0.01) clearly underperforms regardless of
+n\_estimators (0.924 at 50 estimators) -- too little correction is applied per round. Accuracy
+is best and fairly flat across moderate-to-high learning rates (0.5--1.0) once enough
+estimators are used, showing learning\_rate and n\_estimators trade off against each other
+(fewer, larger steps vs. more, smaller steps reaching a similar destination).
+
+\section{Results}
+
+\begin{longtable}{|p{4cm}|p{2cm}|p{1.8cm}|p{1.8cm}|p{1.8cm}|}
+\hline
+\textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 Score} \\ \hline
+\endhead
+Bagging & 0.9561 & 0.9589 & 0.9722 & 0.9655 \\ \hline
+Boosting (Gradient Boosting) & 0.9561 & 0.9467 & 0.9861 & 0.9660 \\ \hline
+Stacked Ensemble & 0.9561 & 0.9467 & 0.9861 & 0.9660 \\ \hline
+\end{longtable}
+\textbf{Note:} All three tuned ensembles reach identical test-set Accuracy (0.9561) on this
+114-sample held-out test set, with Boosting and Stacking producing the exact same predictions
+on this split (identical Precision/Recall/F1) -- a reflection of how well-separated this
+dataset is, where several strong models converge on the same decisions for most test points.
+Section 12's cross-validation results (which use many different splits) are the more
+reliable basis for distinguishing between them.
+
+\section{Result Visualization}
+
+Include all graphs generated during the experiment.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{bias_variance_curves.png}
+\caption{Bias--variance illustration: train/test accuracy vs. n\_estimators for Bagging (left) and Boosting (right)}
+\end{figure}
+\textbf{Inference:} Both ensembles reach $\approx$100\% training accuracy almost immediately
+and stay there, but their \emph{test} accuracy behaves very differently in character: Bagging's
+test accuracy rises quickly and then stays essentially flat/stable regardless of how many
+trees are added (0.921 $\to$ 0.948, no decline) -- consistent with variance reduction, where
+more independent estimators simply average out noise without adding new capacity. Boosting's
+test accuracy dips slightly around 10--25 estimators before climbing to its own stable plateau
+($\approx$0.956) -- consistent with it actively reducing bias through sequential correction,
+which can temporarily overshoot on limited data before stabilizing.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{confusion_matrices.png}
+\caption{Confusion matrices -- Bagging, Boosting, Stacking}
+\end{figure}
+\textbf{Inference:} Boosting and Stacking produce identical confusion matrices on this test
+split (both misclassify the same single malignant case as benign), while Bagging makes one
+additional error of the opposite type -- consistent with their matching Precision/Recall/F1
+figures in Section 9.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.55\linewidth]{roc_curves.png}
+\caption{ROC curves -- Bagging vs. Boosting vs. Stacking}
+\end{figure}
+\textbf{Inference:} Boosting achieves the highest AUC (0.995), narrowly ahead of Bagging
+(0.993) and Stacking (0.986) -- all three rank predictions very well, with Boosting's
+sequential error-correction giving it a slight edge in separating the classes across
+thresholds, not just at the default 0.5 cutoff.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{cv_accuracy.png}
+\caption{5-fold cross-validation accuracy -- Bagging vs. Boosting vs. Stacking}
+\end{figure}
+\textbf{Inference:} This is the most informative comparison in the experiment: Boosting has
+the best average (0.9578) and Bagging is close behind (0.9508), but \textbf{Stacking has both
+the lowest average (0.9403) and by far the largest fold-to-fold variance}, dropping to 0.895
+on fold 2 while Bagging and Boosting stay above 0.93 on every fold. This directly contradicts
+the naive expectation that "more sophisticated ensembling always wins" -- on this
+569-sample dataset, Stacking's extra meta-learning layer adds instability rather than benefit.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{classifier_comparison.png}
+\caption{Ensemble model comparison -- Accuracy / Precision / Recall / F1}
+\end{figure}
+\textbf{Inference:} On the single test split all three appear virtually tied, which is why
+the cross-validation view (Figure~5) -- not this single-split comparison -- should drive the
+final model choice.
+
+\section{Observation Questions}
+\begin{enumerate}
+\item \textbf{How does Bagging reduce variance?} By training many Decision Trees
+independently on different bootstrap samples and majority-voting their predictions, the
+random, sample-specific errors of individual trees tend to cancel out in the aggregate, while
+genuine signal (present in most bootstrap samples) is reinforced. This is directly visible in
+Figure~4 (left): test accuracy stabilizes rather than degrading as more trees are added,
+unlike a single deep tree's overfitting behaviour.
+\item \textbf{How does Boosting address model bias?} Each new estimator in the sequence is
+trained specifically to correct the residual errors of the ensemble built so far (Gradient
+Boosting fits to the gradient of the loss; AdaBoost up-weights previously misclassified
+samples). This directly targets systematic (biased) errors rather than just averaging away
+noise, which is why Boosting achieved the highest tuned CV accuracy of any single ensemble
+(AdaBoost: 0.9802, Gradient Boosting: 0.9758) in this experiment.
+\item \textbf{Why does stacking benefit from heterogeneous models?} Different model families
+make different kinds of errors: SVM captures margin-based non-linear structure, Naive Bayes
+captures probabilistic feature-independence patterns, and Decision Tree captures axis-aligned
+rule-based structure. A meta-learner can exploit disagreements between these different error
+profiles to make better combined decisions than any one model alone -- confirmed here by the
+alternative-combination check (Section 8): removing Naive Bayes from the base learners dropped
+CV accuracy from 0.9538 to 0.9231, showing the heterogeneity genuinely mattered.
+\item \textbf{Which ensemble method performed best and why?} By 5-fold cross-validation (the
+most reliable comparison, Section 12), \textbf{Boosting} performed best (avg. 0.9578),
+narrowly ahead of Bagging (0.9508), with \textbf{Stacking performing worst and least stable}
+(avg. 0.9403, largest fold variance). Boosting's sequential bias-correction was well suited to
+this already fairly separable dataset; Stacking's added complexity (an extra meta-learning
+layer trained on limited data) appears to have introduced instability rather than benefit at
+this dataset size.
+\end{enumerate}
+
+\section{Discussion}
+This experiment demonstrates that ensemble methods are not interchangeable, "always better"
+upgrades over single models -- each targets a different failure mode. Bagging's stable,
+flat test-accuracy curve as n\_estimators grows (Figure~4) is a clean illustration of pure
+variance reduction. Boosting achieved the best overall cross-validated accuracy, consistent
+with its bias-reduction mechanism directly attacking the (already fairly small) residual
+error left after any single tree. Stacking, despite combining three heterogeneous and
+individually reasonable base learners, was the \emph{least} stable ensemble by cross-validation
+-- a useful, non-obvious finding: on a relatively small dataset (569 samples, 455 training
+rows split further across the meta-learner's internal cross-validation), a stacked
+meta-learner has limited data to learn a reliable combination rule, and can end up more
+sensitive to which samples land in which fold than simpler ensembles. A limitation of this
+experiment is that the Stacked Ensemble's SVM base learner was not feature-scaled, which
+likely handicapped its individual contribution and, by extension, the stack's overall
+stability -- a natural follow-up would be to scale features before stacking and observe
+whether that narrows the gap to Boosting.
+
+\section{Conclusion}
+For the Wisconsin Diagnostic Breast Cancer dataset, Boosting (Gradient Boosting, tuned to
+n\_estimators=200, learning\_rate=0.1, max\_depth=1, or equivalently AdaBoost at
+n\_estimators=100, learning\_rate=1.0) is the best-performing and most reliable ensemble
+strategy by 5-fold cross-validation, narrowly ahead of Bagging. Stacking, despite its
+theoretical appeal of combining heterogeneous learners, was both the weakest and least stable
+ensemble on this dataset -- a reminder that ensemble sophistication does not guarantee better
+generalization, particularly on smaller datasets where a meta-learner has limited data to
+learn a robust combination rule. All three ensembles nonetheless comfortably improved on a
+single unconstrained Decision Tree's known overfitting behaviour (established in the prior
+single-tree experiment on this same dataset), confirming the core value of ensembling even
+where the specific strategy matters.
+
+\section{References}
+\begin{enumerate}[label={[\arabic*]}]
+\item Scikit-learn Documentation, ``Ensemble Methods,'' \url{https://scikit-learn.org/stable/modules/ensemble.html}
+\item Scikit-learn Documentation, ``Bagging Classifier,'' \url{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.BaggingClassifier.html}
+\item UCI Machine Learning Repository, ``Breast Cancer Wisconsin (Diagnostic) Data Set,'' \url{https://archive.ics.uci.edu}
+\end{enumerate}
+
+\end{document}
